@@ -1,0 +1,13 @@
+{
+  "restart_interval": 60,
+  "clients": [
+    {
+      "name": "Client de exemplo",
+      "path": "C:\\Games\\Ragnarok\\Client01.lnk",
+      "enabled": false,
+      "visual": false,
+      "timeout": 120,
+      "roi": [0, 0, 100, 100]
+    }
+  ]
+}

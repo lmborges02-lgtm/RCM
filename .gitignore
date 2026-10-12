@@ -1,0 +1,15 @@
+# Dados locais: jamais publicar configurações reais, logs ou dumps.
+config.json
+config.tmp
+*.log
+*.dmp
+*.lnk
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+build/
+dist/
+*.zip
+.DS_Store
+Thumbs.db
