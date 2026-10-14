@@ -11,6 +11,9 @@
 | Subprocesso `--capture` | Captura da janela via Win32/GDI e amostragem da região |
 | `Activity` | Registro de movimento observado e tempo sem mudanças |
 | `terminate_checked` | Verificação de identidade e encerramento do processo correspondente |
+| `openkore_status.py` | Leitura limitada a 4096 bytes e validação de atualidade do heartbeat |
+| `plugins/rcm_status.pl` | Observação do estado do OpenKore e gravação local periódica |
+| `discord_notifications.py` | Entrega assíncrona de avisos, controle de menções e falhas de rede |
 | `iniciar-admin.ps1` | Inicialização opcional com elevação para essa execução |
 
 O aplicativo usa somente a biblioteca padrão do Python em tempo de execução. Pillow foi utilizado para preparar a imagem de documentação, mas não é necessário para executar o monitor nem os testes publicados.
@@ -22,6 +25,8 @@ Um cadastro corresponde ao caminho do executável e à lista completa de argumen
 Falha na consulta de processos suspende ações naquele ciclo. Processos com nome correspondente mas caminho ou argumentos inacessíveis também impedem uma decisão de abertura. Dois cadastros indistinguíveis são rejeitados; múltiplos processos correspondentes suspendem a ação desse cadastro.
 
 ## Detecção visual
+
+Quando `openkore_status` está preenchido no cadastro, esse sinal tem prioridade: a comparação visual é ignorada para aquele client. Consulte [o guia OpenKore](OPENKORE.md). `console.txt` não é lido, independentemente do tamanho do log.
 
 A captura procura a maior janela visível do PID. A imagem é obtida com `PrintWindow`, recortada por porcentagens e amostrada em RGB de 320 × 180 pixels. A captura roda num processo separado, com timeout de cinco segundos, para evitar bloquear a thread de monitoramento em uma chamada ao client travado.
 
@@ -49,6 +54,9 @@ As tentativas são contadas antes do encerramento/abertura; falhas nesses passos
 | Congelamento visual | 120 s por padrão; mínimo 30 s |
 | Intervalo global entre aberturas | 60 s por padrão; de 15 a 3600 s |
 | Limite de tentativas | 3 por client em 15 min |
+| Heartbeat OpenKore | Aproximadamente 2 s e mudanças de estado |
+| Expiração do heartbeat | 15 s; tolera até 5 s de diferença futura de relógio |
+| Timeout de envio ao Discord | 10 s |
 
 Capturas e consultas são sequenciais. Com muitos clients ou operações demoradas, o ciclo completo demora mais de cinco segundos. O intervalo global não bloqueia as verificações com um `sleep` de 60 segundos: o monitor consulta o relógio nos ciclos seguintes.
 

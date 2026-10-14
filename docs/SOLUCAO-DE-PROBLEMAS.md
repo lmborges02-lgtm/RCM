@@ -1,5 +1,17 @@
 # Solução de problemas
 
+## OpenKore aparece como desconhecido
+
+Confirme que o cadastro aponta para o `logs/rcm-status.json` da instalação correspondente. O arquivo deve existir e ser atualizado continuamente. Com `loadPlugins 2`, inclua `rcm_status` em `loadPlugins_list`.
+
+No GordoKore verificado, `plugin load plugins/rcm_status.pl` não encontra o plugin porque o comando pesquisa o nome do arquivo sem diretório/extensão. Use **`plugin load rcm_status`**. A confirmação é `[RCM] Plugin carregado. Status em: ...`. Para atualizar um plugin já carregado, use `plugin reload rcm_status`.
+
+O plugin grava o primeiro status imediatamente e exibe erros de criação, gravação ou substituição do arquivo no console. Se o arquivo parar de atualizar por mais de 15 segundos, o monitor informa desconhecido e suspende a recuperação baseada nesse sinal.
+
+## Discord não recebe avisos
+
+Confira o webhook na aba Discord, habilite os avisos, salve e envie um teste. Consulte o diário do monitor para HTTP, limite de envio ou falha de rede. O teste envia uma mensagem real; testes automatizados do projeto simulam a entrega. Veja [DISCORD.md](DISCORD.md).
+
 ## Sem acesso aos parâmetros
 
 Feche o monitor e abra **Iniciar como administrador.cmd**. Use o mesmo nível de acesso dos clients. O cabeçalho informa o nível de acesso do monitor.

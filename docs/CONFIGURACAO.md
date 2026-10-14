@@ -18,6 +18,7 @@ Pause antes de alterar a lista. **Remover** exclui apenas o cadastro, preservand
 | Detectar congelamento | Habilita a comparação visual | Não ao adicionar |
 | Tempo sem movimento | Tolerância visual, em segundos | 120; mínimo 30 |
 | Região | Esquerda, topo, largura e altura em % | `0, 0, 100, 100` |
+| Status do OpenKore | Caminho do pequeno `rcm-status.json`; tem prioridade sobre a captura | Vazio |
 | Intervalo entre reinícios | Espera global entre aberturas | 60 s; de 15 a 3600 |
 
 A região deve ficar dentro da imagem, com largura e altura positivas. Por exemplo, `10, 20, 40, 50` começa a 10% da largura e a 20% da altura, cobrindo 40% da largura e 50% da altura.
@@ -59,6 +60,9 @@ Os contadores indicam quantidade cadastrada, quantidade ativa na lista e quantid
 - **Falha do Ragnarok**: janela de erro em confirmação.
 - **Captura indisponível** ou **Sem acesso**: ação suspensa por falta de evidência.
 - **Limite**: três tentativas no período de 15 minutos.
+- **OpenKore — online**: estado de mapa informado pelo OpenKore.
+- **OpenKore — offline**: aguardando conexão, tolerância ou recuperação de desconexão persistente.
+- **OpenKore — desconhecido**: heartbeat ausente, inválido ou desatualizado; sem recuperação automática baseada nele.
 
 ## Pausar e retomar
 
