@@ -12,11 +12,13 @@ import threading
 import time
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
+from discord_notifications import DiscordNotifier, notification_state
+from openkore_status import read_status
 
 BASE = Path(__file__).resolve().parent
 CONFIG = BASE / 'config.json'
 HIDDEN = 0x08000000
-VERSION = '0.1.0'
+VERSION = '0.3.0'
 
 
 def load_config(path=CONFIG):
@@ -211,6 +213,8 @@ class App:
     def __init__(self, root):
         self.root = root
         self.events = queue.Queue()
+        self.notice_states = {}
+        self.discord = DiscordNotifier(lambda line: self.events.put(('log', line)))
         self.stop = threading.Event()
         self.worker = None
         saved_config = load_config()
@@ -250,6 +254,7 @@ class App:
         clients_panel = ttk.Frame(self.tabs, style='Surface.TFrame', padding=16)
         history_panel = ttk.Frame(self.tabs, style='Surface.TFrame', padding=16)
         self.tabs.add(clients_panel, text='  Clients  '); self.tabs.add(history_panel, text='  Diário de eventos  ')
+        self.build_discord_tab()
         clients_panel.columnconfigure(0, weight=1); clients_panel.rowconfigure(1, weight=1)
         toolbar = ttk.Frame(clients_panel, style='Surface.TFrame'); toolbar.grid(row=0, column=0, sticky='ew', pady=(0, 14))
         self.edit_buttons = []
@@ -307,6 +312,48 @@ class App:
                       style='Muted.TLabel').grid(row=5, column=0, sticky='w', pady=(4, 0))
         self.refresh(); root.after(150, self.drain)
         root.protocol('WM_DELETE_WINDOW', self.close)
+
+    def build_discord_tab(self):
+        panel = ttk.Frame(self.tabs, padding=20)
+        self.tabs.add(panel, text='  Discord  ')
+        ttk.Label(panel, text='Avisos no Discord', font=('Georgia', 19, 'bold')).pack(anchor='w')
+        ttk.Label(panel, text='Falhas, fechamento, reabertura e limite de tentativas. Apenas mudanças de estado.',
+                  wraplength=880).pack(anchor='w', pady=(8, 18))
+        saved = {'enabled': False, 'webhook_url': ''}
+        path = BASE / 'discord.json'
+        if path.exists():
+            try:
+                saved.update(json.loads(path.read_text(encoding='utf-8-sig')))
+                self.discord.configure(saved['enabled'], saved['webhook_url'])
+            except Exception:
+                saved = {'enabled': False, 'webhook_url': ''}
+                self.events.put(('log', 'Discord: configuração inválida; avisos desativados.'))
+        enabled = tk.BooleanVar(value=saved['enabled'])
+        url = tk.StringVar(value=saved['webhook_url'])
+        ttk.Checkbutton(panel, text='Habilitar avisos automáticos', variable=enabled).pack(anchor='w')
+        ttk.Label(panel, text='URL do webhook do seu canal').pack(anchor='w', pady=(12, 4))
+        ttk.Entry(panel, textvariable=url, show='*', width=75).pack(anchor='w', fill='x')
+        ttk.Label(panel, text='A URL fica apenas em discord.json nesta máquina. Nunca a publique no GitHub.',
+                  style='Muted.TLabel').pack(anchor='w', pady=8)
+        actions = ttk.Frame(panel); actions.pack(anchor='w', pady=12)
+        def apply(test=False):
+            try:
+                self.discord.configure(enabled.get(), url.get())
+                if test:
+                    if not self.discord.notify('Teste do Guardião dos clients. Os avisos do monitor chegarão neste canal.', test=True):
+                        raise ValueError('Preencha o webhook para enviar o teste.')
+                else:
+                    temporary = path.with_suffix('.tmp')
+                    temporary.write_text(json.dumps({'enabled': enabled.get(), 'webhook_url': url.get().strip()}, indent=2), encoding='utf-8')
+                    temporary.replace(path)
+                    self.events.put(('log', 'Discord: configuração salva.'))
+            except Exception as exc: messagebox.showerror('Discord', str(exc))
+        ttk.Button(actions, text='Salvar configuração', command=apply, style='Primary.TButton').pack(side='left')
+        ttk.Button(actions, text='Enviar teste ao canal', command=lambda: apply(True)).pack(side='left', padx=12)
+        ttk.Label(panel, text='Conexão do personagem no Freya', font=('Georgia', 16, 'bold')).pack(anchor='w', pady=(18, 8))
+        ttk.Label(panel, text='Associe o arquivo logs/rcm-status.json em “Editar selecionado” para receber o estado do OpenKore.\n'
+                  'Sem essa associação, processo aberto não confirma personagem conectado. Status antigo aparece como desconhecido.',
+                  wraplength=880).pack(anchor='w')
 
     def apply_theme(self):
         c = self.colors
@@ -371,10 +418,10 @@ class App:
         self.table.delete(*self.table.get_children())
         for i, item in enumerate(self.items):
             self.table.insert('', 'end', iid=str(i), values=(item['name'], 'Sim' if item['enabled'] else 'Não',
-                              'Habilitado' if item['visual'] else 'Desativado', 'Pausado'), tags=(self.row_tag(i, 'Pausado'),))
+                              'OpenKore' if item.get('openkore_status') else ('Habilitado' if item['visual'] else 'Desativado'), 'Pausado'), tags=(self.row_tag(i, 'Pausado'),))
         self.counts['total'].configure(text=str(len(self.items)))
         self.counts['active'].configure(text=str(sum(item['enabled'] for item in self.items)))
-        self.counts['visual'].configure(text=str(sum(item['enabled'] and item['visual'] for item in self.items)))
+        self.counts['visual'].configure(text=str(sum(item['enabled'] and item['visual'] and not item.get('openkore_status') for item in self.items)))
         self.selection_info.configure(text='Selecione um client para consultar seu atalho e tempo de tolerância.')
 
     def save(self):
@@ -422,12 +469,13 @@ class App:
         for row, (key, label, value) in enumerate([
                 ('name', 'Nome', item['name']), ('path', 'Caminho do atalho ou .exe', item['path']),
                 ('timeout', 'Tempo sem movimento (segundos, mínimo 30)', item['timeout']),
-                ('roi', 'Região em %: esquerda, topo, largura, altura', ', '.join(map(str, item['roi'])))]):
+                ('roi', 'Região em %: esquerda, topo, largura, altura', ', '.join(map(str, item['roi']))),
+                ('openkore_status', 'Status do OpenKore (rcm-status.json; vazio usa captura visual)', item.get('openkore_status', ''))]):
             ttk.Label(panel, text=label).grid(row=row * 2 + 1, column=0, sticky='w', pady=(8, 2))
             variables[key] = tk.StringVar(value=str(value))
             ttk.Entry(panel, textvariable=variables[key], width=65).grid(row=row * 2 + 2, column=0, sticky='ew')
         visual = tk.BooleanVar(value=item['visual'])
-        ttk.Checkbutton(panel, text='Detectar congelamento: confirme antes a captura e o movimento contínuo', variable=visual).grid(row=9, column=0, pady=12)
+        ttk.Checkbutton(panel, text='Detectar congelamento: confirme antes a captura e o movimento contínuo', variable=visual).grid(row=11, column=0, pady=12)
         def commit():
             try:
                 path = variables['path'].get().strip().strip('"'); resolve(path)
@@ -438,10 +486,11 @@ class App:
                 if any(j != i and os.path.normcase(c['path']) == os.path.normcase(path) for j, c in enumerate(self.items)):
                     raise ValueError('Esse arquivo já está cadastrado.')
                 item.update(name=variables['name'].get().strip() or Path(path).stem, path=path,
-                            timeout=timeout, roi=roi, visual=visual.get())
+                            timeout=timeout, roi=roi, visual=visual.get(),
+                            openkore_status=variables['openkore_status'].get().strip().strip('"'))
                 self.save(); dialog.destroy()
             except Exception as exc: messagebox.showerror('Configuração inválida', str(exc), parent=dialog)
-        dialog_actions = ttk.Frame(panel); dialog_actions.grid(row=10, column=0, sticky='e')
+        dialog_actions = ttk.Frame(panel); dialog_actions.grid(row=12, column=0, sticky='e')
         ttk.Button(dialog_actions, text='Cancelar', command=dialog.destroy).pack(side='left', padx=8)
         ttk.Button(dialog_actions, text='Salvar configuração', command=commit, style='Primary.TButton').pack(side='left')
 
@@ -465,10 +514,17 @@ class App:
                 if self.table.exists(str(event[1])):
                     self.table.set(str(event[1]), 'status', event[2])
                     self.table.item(str(event[1]), tags=(self.row_tag(event[1], event[2]),))
+                    category = notification_state(event[2])
+                    previous = self.notice_states.get(event[1])
+                    if category and category != previous:
+                        self.notice_states[event[1]] = category
+                        self.discord.notify(f"{self.items[event[1]]['name']}: {category}.")
             elif event[0] == 'log':
                 line = time.strftime('%H:%M:%S') + '  ' + event[1] + '\n'
                 self.log.config(state='normal'); self.log.insert('end', line); self.log.see('end'); self.log.config(state='disabled')
                 with (BASE / 'monitor.log').open('a', encoding='utf-8') as stream: stream.write(time.strftime('%Y-%m-%d ') + line)
+            elif event[0] == 'notice':
+                self.discord.notify(f"{self.items[event[1]]['name']}: tentativa de reinício por {event[2]}.")
             elif event[0] == 'error':
                 messagebox.showerror('Falha', event[1]); self.summary.config(text='Pausado.')
             elif event[0] == 'preview':
@@ -498,6 +554,7 @@ class App:
         self.settings['restart_interval'] = interval
         self.save()
         self.stop.clear(); self.start_button.config(state='disabled'); self.pause_button.config(state='normal')
+        self.notice_states.clear()
         for button in self.edit_buttons: button.config(state='disabled')
         self.summary.config(text='Monitorando. Fechar o monitor interrompe as verificações.')
         self.phase.configure(text='MONITORANDO', bg='#31584B', fg='#E3F1D9')
@@ -508,7 +565,7 @@ class App:
         self.phase.configure(text='PAUSANDO…', bg='#2C4A4D', fg='#E9D5AB')
 
     def close(self):
-        self.stop.set(); self.root.destroy()
+        self.stop.set(); self.discord.close(); self.root.destroy()
 
     def run(self):
         states = {}; targets = {}
@@ -523,7 +580,7 @@ class App:
                         raise ValueError('Atalhos com parâmetros idênticos: não é possível distinguir os clients.')
                     targets[i] = target
                     states[i] = {'activity': Activity(), 'identity': None, 'grace': time.monotonic() + 90,
-                                 'attempts': [], 'crash_seen': None}
+                                 'attempts': [], 'crash_seen': None, 'offline_since': None}
                 except Exception as exc: status(i, 'Configuração inválida'); self.events.put(('log', item['name'] + ': ' + str(exc)))
             while not self.stop.is_set():
                 try:
@@ -558,6 +615,7 @@ class App:
                         if identity != state['identity']:
                             state['identity'] = identity; state['activity'] = Activity(); state['grace'] = now + 90
                             state['crash_seen'] = None
+                            state['offline_since'] = None
                         state['attempts'] = [t for t in state['attempts'] if now - t < 900]
                         if len(state['attempts']) >= 3:
                             status(i, 'Limite: 3 reinícios em 15 min'); continue
@@ -574,6 +632,25 @@ class App:
                                 reason = 'janela Gravity Error Handler'
                             else:
                                 continue
+                        elif item.get('openkore_status'):
+                            report = read_status(item['openkore_status'])
+                            if report['state'] == 'online':
+                                state['offline_since'] = None
+                                status(i, 'OpenKore — online no servidor de mapa'); continue
+                            if report['state'] != 'offline':
+                                state['offline_since'] = None
+                                status(i, 'OpenKore — desconhecido: ' + report['detail']); continue
+                            if not report['recoverable']:
+                                state['offline_since'] = None
+                                status(i, 'OpenKore — offline: aguardando primeira conexão'); continue
+                            if now < state['grace']:
+                                state['offline_since'] = None
+                                status(i, 'OpenKore — offline: tolerância de carregamento'); continue
+                            if state['offline_since'] is None: state['offline_since'] = now
+                            elapsed = now - state['offline_since']
+                            status(i, f'OpenKore — offline há {int(elapsed)} s')
+                            if elapsed < item['timeout']: continue
+                            reason = 'desconexão persistente informada pelo OpenKore'
                         elif not item['visual']:
                             state['crash_seen'] = None
                             status(i, 'Aberto — detecção visual desativada'); continue
@@ -609,6 +686,10 @@ class App:
                     state, item, target = states[i], self.items[i], targets[i]
                     try:
                         fresh_inventory = processes()
+                        if reason == 'desconexão persistente informada pelo OpenKore':
+                            report = read_status(item['openkore_status'])
+                            if report['state'] != 'offline' or not report['recoverable']:
+                                state['offline_since'] = None; continue
                         if self.stop.is_set(): break
                         if proc:
                             fresh = [p for p in fresh_inventory if p['ProcessId'] == proc['ProcessId'] and p['CreationDate'] == proc['CreationDate'] and matches(p, target)]
@@ -625,6 +706,7 @@ class App:
                         state['attempts'].append(time.monotonic())
                         next_restart = time.monotonic() + self.settings['restart_interval']
                         self.events.put(('log', item['name'] + ': iniciando reinício por ' + reason))
+                        self.events.put(('notice', i, reason))
                         if proc: terminate_checked(proc)
                         if self.stop.is_set(): break
                         os.startfile(item['path'])

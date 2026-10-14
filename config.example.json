@@ -6,6 +6,7 @@
       "path": "C:\\Games\\Ragnarok\\Client01.lnk",
       "enabled": false,
       "visual": false,
+      "openkore_status": "",
       "timeout": 120,
       "roi": [0, 0, 100, 100]
     }

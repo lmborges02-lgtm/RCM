@@ -1,5 +1,22 @@
 # Histórico de alterações
 
+## 0.3.0 — 2026-10-14
+
+- Plugin OpenKore gera um pequeno heartbeat JSON, sem ler o console.log nem enviar comandos ao jogo.
+- Estado online/offline/desconhecido informado pelo OpenKore e avisado pelo Discord.
+- Recuperação de desconexão persistente tem prioridade sobre a captura visual; sprites animados não cancelam o sinal de desconexão.
+- Status antigo, inválido ou ausente não causa reinício. Reconexão cancela uma tentativa pendente.
+- Testes Python de leitura e recuperação e teste Perl com módulos simulados.
+- Gravação inicial imediata, confirmação de carregamento e diagnóstico de erros no console do plugin.
+- Instruções corrigidas para `plugin load rcm_status` e lista seletiva `loadPlugins_list` no GordoKore utilizado.
+
+## 0.2.0 — 2026-10-14
+
+- Aba de configuração e teste de avisos pelo Discord.
+- Envio assíncrono de mudanças do estado dos clients, sem repetições do contador de tempo.
+- Webhook local separado e excluído do Git; mensagens sem menções automáticas.
+- Documentação distingue processo aberto de personagem conectado. Detecção de conexão no Freya ainda depende de calibração e validação.
+
 ## 0.1.0 — 2026-10-11
 
 - Cadastro editável de atalhos e executáveis, sem número fixo de clients.

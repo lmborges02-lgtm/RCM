@@ -2,6 +2,8 @@
 
 **Guardião dos clients** é um aplicativo local para Windows que monitora múltiplos clients e reabre seus atalhos quando fecham, congelam ou apresentam a janela **Gravity Error Handler**.
 
+Na versão **0.3.0**, também acompanha a conexão informada pelo OpenKore e envia mudanças de estado pelo Discord. O pequeno arquivo de status substitui a comparação visual quando associado ao client, evitando que sprites ainda animados escondam uma desconexão.
+
 A interface é inspirada no Ragnarok, com tons de pergaminho, detalhes dourados e um emblema desenhado localmente. O projeto não é afiliado à Gravity e não inclui arquivos do jogo.
 
 ![Prévia da interface com configuração demonstrativa](docs/interface.png)
@@ -14,6 +16,9 @@ A interface é inspirada no Ragnarok, com tons de pergaminho, detalhes dourados 
 - Detecta imagem congelada em uma região configurável, depois de observar movimento.
 - Reinicia **um client por vez**, com intervalo configurável de **60 segundos** por padrão.
 - Exibe estados individuais, configuração selecionada e diário de eventos.
+- Lê um heartbeat de poucos bytes do OpenKore e identifica online/offline/desconhecido, conforme informado por ele.
+- Recupera desconexões persistentes, cancelando tentativas quando a conexão volta.
+- Envia avisos pelo Discord com webhook local e sem repetir o contador de tempo.
 - Limita tentativas consecutivas e impede que duas instâncias do monitor atuem juntas na mesma sessão do Windows.
 
 ## Começar
@@ -24,10 +29,18 @@ Requer **Windows**, **Python 3 com tkinter** e **Windows PowerShell 5.1** (`powe
 2. Extraia para uma pasta em que você tenha permissão de escrita. O programa salva a configuração e o histórico nessa pasta.
 3. Abra **Iniciar.cmd**. Se o jogo roda como administrador, abra **Iniciar como administrador.cmd** e confirme a solicitação do Windows.
 4. Use **Adicionar arquivo** para cadastrar seus atalhos `.lnk` ou executáveis `.exe`.
-5. Selecione cada client e teste sua captura antes de habilitar a detecção de congelamento.
+5. Se usa OpenKore, instale o [plugin de status](docs/OPENKORE.md) e associe seu JSON ao client. Caso contrário, teste a captura antes de habilitar a detecção visual.
 6. Ajuste **Intervalo entre reinícios** e clique em **Iniciar monitoramento**.
 
 A primeira execução cria um `config.json` **vazio**. Não é necessário copiar nem editar o arquivo de exemplo. O aplicativo começa pausado. Fechá-lo interrompe o monitoramento; ele não instala serviço nem tarefa agendada.
+
+## Status do OpenKore e Discord
+
+Copie `plugins/rcm_status.pl` para a pasta `plugins` de cada OpenKore. Na versão GordoKore utilizada, o comando é **`plugin load rcm_status`**: ele procura pelo nome do plugin, e não pelo caminho completo. Para carregamento seletivo (`loadPlugins 2`), inclua `rcm_status` em `loadPlugins_list` no `control/sys.txt`.
+
+Em **Editar selecionado**, associe o `logs/rcm-status.json` daquela instalação. Ele atualiza aproximadamente a cada dois segundos. Ausência, erro ou falta de atualização por mais de 15 segundos resultam em **desconhecido**, sem reinício automático por esse motivo.
+
+Em **Discord**, configure o webhook do seu canal, salve e envie o teste. Os avisos distinguem o estado do processo da conexão informada pelo OpenKore. Não é uma consulta independente ao servidor oficial. Consulte os guias para detalhes de instalação e diagnóstico.
 
 Para iniciar pelo terminal:
 
@@ -54,6 +67,8 @@ Captura preta, janela minimizada ou falha de captura suspende a detecção visua
 ## Documentação
 
 - [Configuração e uso](docs/CONFIGURACAO.md)
+- [Avisos no Discord](docs/DISCORD.md)
+- [Conexão e recuperação pelo OpenKore](docs/OPENKORE.md)
 - [Solução de problemas](docs/SOLUCAO-DE-PROBLEMAS.md)
 - [Funcionamento e limites](docs/ARQUITETURA.md)
 - [Como contribuir e executar testes](CONTRIBUTING.md)
@@ -61,7 +76,7 @@ Captura preta, janela minimizada ou falha de captura suspende a detecção visua
 
 ## Dados locais e atualização
 
-`config.json`, `monitor.log`, atalhos reais e dumps do jogo são dados locais e estão excluídos do Git. O repositório contém somente um exemplo fictício. Não publique parâmetros de login, senhas ou conteúdo de dumps em issues.
+`config.json`, `discord.json`, `rcm-status.json`, `monitor.log`, atalhos reais e dumps do jogo são dados locais e estão excluídos do Git. O repositório contém somente um exemplo fictício. Não publique webhooks, parâmetros de login, senhas ou conteúdo de dumps em issues.
 
 Para atualizar uma instalação existente, feche o monitor, preserve `config.json` e substitua os arquivos do aplicativo. Os clients podem continuar abertos. Reabra o monitor e inicie as verificações novamente.
 

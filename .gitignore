@@ -1,6 +1,10 @@
 # Dados locais: jamais publicar configurações reais, logs ou dumps.
 config.json
 config.tmp
+discord.json
+discord.tmp
+rcm-status.json
+rcm-status.json.tmp
 *.log
 *.dmp
 *.lnk
