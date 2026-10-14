@@ -6,6 +6,6 @@ Na raiz do projeto, execute:
 python -m unittest discover -s tests -v
 ```
 
-Os 11 testes verificam criação e preservação da configuração, atividade visual, títulos de erro e reinícios em sequência. As consultas, capturas, processos e aberturas são simulados: nenhum client real é encerrado ou aberto.
+Os 20 testes verificam configuração, atividade visual, títulos de erro, fila de reinícios, avisos Discord e status/recuperação via OpenKore. Consultas, capturas, processos, aberturas e entregas Discord são simulados: nenhum client real é encerrado ou aberto, e nenhuma mensagem real é enviada pelos testes.
 
 Veja [CONTRIBUTING.md](../CONTRIBUTING.md) para orientação de desenvolvimento.
