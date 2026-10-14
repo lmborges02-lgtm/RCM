@@ -16,6 +16,15 @@ jobs:
         with:
           python-version: '3.11'
       - name: Verificar sintaxe
-        run: python -m py_compile monitor.py
+        run: python -m py_compile monitor.py discord_notifications.py openkore_status.py
       - name: Testar comportamento com processos simulados
         run: python -m unittest discover -s tests -v
+      - name: Validar plugin com APIs OpenKore simuladas
+        shell: pwsh
+        run: |
+          if (Get-Command perl -ErrorAction SilentlyContinue) {
+            perl tests/test_plugin.pl
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          } else {
+            Write-Output 'Perl indisponível neste runner; teste do plugin não executado.'
+          }
