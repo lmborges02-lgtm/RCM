@@ -7,9 +7,12 @@ Use Python 3 com tkinter. O aplicativo é destinado ao Windows; a interface e as
 ```powershell
 python -m py_compile monitor.py
 python -m unittest discover -s tests -v
+perl tests/test_plugin.pl
 ```
 
 Os testes usam somente diretórios temporários e processos simulados. Não consultam seus clients, não capturam jogos, não encerram programas e não escrevem em sua configuração real.
+
+O teste Perl requer um interpretador Perl com os módulos padrão e simula as APIs do OpenKore. Confere a gravação inicial imediata, os estados online/offline, a atualização do arquivo e o descarregamento do plugin. O workflow executa essa verificação quando Perl está disponível no runner.
 
 ## Alterações
 
