@@ -73,7 +73,7 @@ sub heartbeat {
     $sequence++;
     my $json = '{"version":1,"writer_pid":'.$$.',"sequence":'.$sequence.',"updated_at":'.int($now).
                ',"state":"'.$state.'","recoverable":'.$recoverable.'}';
-    my $temporary = $path . '.' . $ . '.tmp';
+    my $temporary = $path . '.' . $$ . '.tmp';
     if (!open(my $out, '>', $temporary)) {
         report_error('Nao foi possivel criar o arquivo temporario: '.$!);
         return;
