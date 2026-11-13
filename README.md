@@ -38,7 +38,7 @@ A primeira execução cria um `config.json` **vazio**. Não é necessário copia
 
 Copie `plugins/rcm_status.pl` para a pasta `plugins` de cada OpenKore. Na versão GordoKore utilizada, o comando é **`plugin load rcm_status`**: ele procura pelo nome do plugin, e não pelo caminho completo. Para carregamento seletivo (`loadPlugins 2`), inclua `rcm_status` em `loadPlugins_list` no `control/sys.txt`.
 
-Em **Editar selecionado**, associe o `logs/rcm-status.json` daquela instalação. Ele atualiza aproximadamente a cada dois segundos. Ausência, erro ou falta de atualização por mais de 15 segundos resultam em **desconhecido**, sem reinício automático por esse motivo.
+Em **Editar selecionado → Status do OpenKore**, associe o arquivo indicado no console. Em uma instalação compartilhada, cada profile usa `logs/rcm-status-<profile>.json`; sem profiles, o caminho continua `logs/rcm-status.json`. Ele atualiza aproximadamente a cada dois segundos. Ausência, erro ou falta de atualização por mais de 15 segundos resultam em **desconhecido**, sem reinício automático por esse motivo.
 
 Em **Discord**, configure o webhook do seu canal, salve e envie o teste. Os avisos distinguem o estado do processo da conexão informada pelo OpenKore. Não é uma consulta independente ao servidor oficial. Consulte os guias para detalhes de instalação e diagnóstico.
 
@@ -76,7 +76,7 @@ Captura preta, janela minimizada ou falha de captura suspende a detecção visua
 
 ## Dados locais e atualização
 
-`config.json`, `discord.json`, `rcm-status.json`, `monitor.log`, atalhos reais e dumps do jogo são dados locais e estão excluídos do Git. O repositório contém somente um exemplo fictício. Não publique webhooks, parâmetros de login, senhas ou conteúdo de dumps em issues.
+`config.json`, `discord.json`, arquivos `rcm-status*.json`, `monitor.log`, atalhos reais e dumps do jogo são dados locais e estão excluídos do Git. O repositório contém somente um exemplo fictício. Não publique webhooks, parâmetros de login, senhas ou conteúdo de dumps em issues.
 
 Para atualizar uma instalação existente, feche o monitor, preserve `config.json` e substitua os arquivos do aplicativo. Os clients podem continuar abertos. Reabra o monitor e inicie as verificações novamente.
 

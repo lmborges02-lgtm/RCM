@@ -4,7 +4,10 @@ config.tmp
 discord.json
 discord.tmp
 rcm-status.json
+rcm-status.json.*.tmp
 rcm-status.json.tmp
+rcm-status-*.json
+rcm-status-*.json.*.tmp
 *.log
 *.dmp
 *.lnk

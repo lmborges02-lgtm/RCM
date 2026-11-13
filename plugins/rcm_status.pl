@@ -13,7 +13,7 @@ use Log ();
 # Não envia comandos ou pacotes ao jogo. Apenas observa o estado do OpenKore.
 my $plugin_file = abs_path(__FILE__) or die '[RCM] Caminho do plugin indisponivel';
 my $root = dirname(dirname($plugin_file));
-my $path = File::Spec->catfile($root, 'logs', 'rcm-status.json');
+my $path;
 my $last_write = 0;
 my $ever_online = 0;
 my $disconnected = 0;
@@ -26,12 +26,40 @@ $hooks = Plugins::addHooks(
     ['Network::stateChanged', \&state_changed],
     ['disconnected', \&on_disconnect],
 );
-Log::message('[RCM] Plugin carregado. Status em: '.$path."\n", 'plugins');
+Log::message("[RCM] Plugin carregado.\n", 'plugins');
 heartbeat();
 
+sub select_status_path {
+    my $profile;
+    {
+        no warnings 'once';
+        $profile = $profiles::profile;
+    }
+    my $filename = 'rcm-status.json';
+    if (defined($profile) && length($profile) && $profile ne 'Use standard control folder') {
+        return 0 if $profile eq '.' || $profile eq '..' || $profile =~ m{[<>:"/\\|?*\x00-\x1f]};
+        $filename = 'rcm-status-' . $profile . '.json';
+    }
+    my $next_path = File::Spec->catfile($root, 'logs', $filename);
+    if (!defined($path) || $path ne $next_path) {
+        $path = $next_path;
+        $last_write = 0;
+        $ever_online = 0;
+        $disconnected = 0;
+        $sequence = 0;
+        $reported_error = '';
+        Log::message("[RCM] Status em: $path\n", 'plugins');
+    }
+    return 1;
+}
+
 sub state_changed { $last_write = 0; heartbeat(); }
-sub on_disconnect { $disconnected = 1; $last_write = 0; heartbeat(); }
+sub on_disconnect {
+    return unless select_status_path();
+    $disconnected = 1; $last_write = 0; heartbeat();
+}
 sub heartbeat {
+    return unless select_status_path();
     my $now = time;
     return if $now - $last_write < 2;
     $last_write = $now;
@@ -45,7 +73,7 @@ sub heartbeat {
     $sequence++;
     my $json = '{"version":1,"writer_pid":'.$$.',"sequence":'.$sequence.',"updated_at":'.int($now).
                ',"state":"'.$state.'","recoverable":'.$recoverable.'}';
-    my $temporary = $path . '.tmp';
+    my $temporary = $path . '.' . $ . '.tmp';
     if (!open(my $out, '>', $temporary)) {
         report_error('Nao foi possivel criar o arquivo temporario: '.$!);
         return;

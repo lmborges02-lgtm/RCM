@@ -38,7 +38,8 @@ copy($source, $plugin) or die "Cannot copy test plugin: $!";
 $net = bless {state => 1}, 'FakeNet';
 require $plugin;
 sub snapshot {
-    open(my $fh, '<', File::Spec->catfile($root, 'logs', 'rcm-status.json')) or die $!;
+    my $file = shift // 'rcm-status.json';
+    open(my $fh, '<', File::Spec->catfile($root, 'logs', $file)) or die $!;
     local $/;
     return decode_json(<$fh>);
 }
@@ -50,5 +51,17 @@ die 'Online not detected' unless snapshot()->{state} eq 'online';
 $net->{state} = 1;
 RCMStatus::on_disconnect();
 die 'Disconnect not detected' unless snapshot()->{state} eq 'offline' && snapshot()->{recoverable};
+$profiles::profile = 'Conta01';
+RCMStatus::state_changed();
+die 'New profile inherited recovery' if snapshot('rcm-status-Conta01.json')->{recoverable};
+$net->{state} = 5;
+RCMStatus::state_changed();
+$profiles::profile = 'Conta02';
+$net->{state} = 1;
+RCMStatus::on_disconnect();
+die 'Wrong profile modified' unless snapshot('rcm-status-Conta01.json')->{state} eq 'online';
+my $second = snapshot('rcm-status-Conta02.json');
+die 'Profile disconnect not detected' unless $second->{state} eq 'offline' && $second->{recoverable};
+die 'Legacy status modified' unless snapshot()->{recoverable};
 RCMStatus::unload();
 print "PASS: initial heartbeat, online, disconnect, replacement and unload\n";

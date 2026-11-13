@@ -351,7 +351,7 @@ class App:
         ttk.Button(actions, text='Salvar configuração', command=apply, style='Primary.TButton').pack(side='left')
         ttk.Button(actions, text='Enviar teste ao canal', command=lambda: apply(True)).pack(side='left', padx=12)
         ttk.Label(panel, text='Conexão do personagem no Freya', font=('Georgia', 16, 'bold')).pack(anchor='w', pady=(18, 8))
-        ttk.Label(panel, text='Associe o arquivo logs/rcm-status.json em “Editar selecionado” para receber o estado do OpenKore.\n'
+        ttk.Label(panel, text='Associe o arquivo de status do profile em “Editar selecionado” para receber o estado do OpenKore.\n'
                   'Sem essa associação, processo aberto não confirma personagem conectado. Status antigo aparece como desconhecido.',
                   wraplength=880).pack(anchor='w')
 
@@ -470,12 +470,12 @@ class App:
                 ('name', 'Nome', item['name']), ('path', 'Caminho do atalho ou .exe', item['path']),
                 ('timeout', 'Tempo sem movimento (segundos, mínimo 30)', item['timeout']),
                 ('roi', 'Região em %: esquerda, topo, largura, altura', ', '.join(map(str, item['roi']))),
-                ('openkore_status', 'Status do OpenKore (rcm-status.json; vazio usa captura visual)', item.get('openkore_status', ''))]):
+                ('openkore_status', 'Status do OpenKore (caminho do JSON; vazio usa captura visual)', item.get('openkore_status', ''))]):
             ttk.Label(panel, text=label).grid(row=row * 2 + 1, column=0, sticky='w', pady=(8, 2))
             variables[key] = tk.StringVar(value=str(value))
             ttk.Entry(panel, textvariable=variables[key], width=65).grid(row=row * 2 + 2, column=0, sticky='ew')
         visual = tk.BooleanVar(value=item['visual'])
-        ttk.Checkbutton(panel, text='Detectar congelamento: confirme antes a captura e o movimento contínuo', variable=visual).grid(row=11, column=0, pady=12)
+        ttk.Checkbutton(panel, text='Detectar congelamento: confirme antes a captura e o movimento contínuo', variable=visual).grid(row=13, column=0, pady=12)
         def commit():
             try:
                 path = variables['path'].get().strip().strip('"'); resolve(path)
@@ -490,7 +490,7 @@ class App:
                             openkore_status=variables['openkore_status'].get().strip().strip('"'))
                 self.save(); dialog.destroy()
             except Exception as exc: messagebox.showerror('Configuração inválida', str(exc), parent=dialog)
-        dialog_actions = ttk.Frame(panel); dialog_actions.grid(row=12, column=0, sticky='e')
+        dialog_actions = ttk.Frame(panel); dialog_actions.grid(row=14, column=0, sticky='e')
         ttk.Button(dialog_actions, text='Cancelar', command=dialog.destroy).pack(side='left', padx=8)
         ttk.Button(dialog_actions, text='Salvar configuração', command=commit, style='Primary.TButton').pack(side='left')
 

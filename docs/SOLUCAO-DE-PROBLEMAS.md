@@ -2,9 +2,9 @@
 
 ## OpenKore aparece como desconhecido
 
-Confirme que o cadastro aponta para o `logs/rcm-status.json` da instalação correspondente. O arquivo deve existir e ser atualizado continuamente. Com `loadPlugins 2`, inclua `rcm_status` em `loadPlugins_list`.
+Confirme que o cadastro aponta para o caminho informado pelo plugin: `logs/rcm-status-<profile>.json` para um profile ativo ou `logs/rcm-status.json` em uma instalação sem profiles. Se todos os cadastros apontam para o mesmo arquivo, atualize o plugin, recarregue-o em cada instância e refaça os vínculos. O arquivo deve existir e ser atualizado continuamente. Com `loadPlugins 2`, inclua `rcm_status` em `loadPlugins_list`.
 
-No GordoKore verificado, `plugin load plugins/rcm_status.pl` não encontra o plugin porque o comando pesquisa o nome do arquivo sem diretório/extensão. Use **`plugin load rcm_status`**. A confirmação é `[RCM] Plugin carregado. Status em: ...`. Para atualizar um plugin já carregado, use `plugin reload rcm_status`.
+No GordoKore verificado, `plugin load plugins/rcm_status.pl` não encontra o plugin porque o comando pesquisa o nome do arquivo sem diretório/extensão. Use **`plugin load rcm_status`**. A confirmação é `[RCM] Status em: ...`. Para atualizar um plugin já carregado, use `plugin reload rcm_status`.
 
 O plugin grava o primeiro status imediatamente e exibe erros de criação, gravação ou substituição do arquivo no console. Se o arquivo parar de atualizar por mais de 15 segundos, o monitor informa desconhecido e suspende a recuperação baseada nesse sinal.
 

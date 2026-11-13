@@ -1,5 +1,11 @@
 # Histórico de alterações
 
+## Não lançado
+
+- Arquivo de status separado por profile do OpenKore em uma instalação compartilhada, mantendo o caminho antigo para instalações sem profile.
+- Campo de status do OpenKore e botões de edição agora aparecem em linhas distintas.
+- Guias de instalação, migração e solução de problemas atualizados.
+
 ## 0.3.0 — 2026-10-14
 
 - Plugin OpenKore gera um pequeno heartbeat JSON, sem ler o console.log nem enviar comandos ao jogo.

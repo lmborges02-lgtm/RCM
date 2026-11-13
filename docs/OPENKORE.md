@@ -1,12 +1,15 @@
 # Conexão pelo OpenKore
 
-Copie `plugins/rcm_status.pl` deste pacote para a pasta `plugins` de cada OpenKore. No console do OpenKore, carregue com `plugin load rcm_status`, ou reinicie o OpenKore. Ele grava `logs/rcm-status.json` nessa instalação, aproximadamente a cada dois segundos e em mudanças de estado.
+1. Copie `plugins/rcm_status.pl` para a pasta `plugins` do OpenKore. Se vários profiles compartilham a instalação, copie **uma vez**.
+2. Em cada console aberto, execute `plugin load rcm_status` ou, se já estiver carregado, `plugin reload rcm_status`. Para carregamento seletivo (`loadPlugins 2`), inclua `rcm_status` em `loadPlugins_list` no `control/sys.txt`.
+3. Confira `[RCM] Status em:` no console. Com um profile ativo chamado `Conta01`, o arquivo é `logs/rcm-status-Conta01.json`. Uma instalação sem profile continua usando `logs/rcm-status.json`. Os arquivos são atualizados aproximadamente a cada dois segundos.
+4. Ao migrar, pause o RCM, troque o caminho antigo em cada cadastro e retome o monitoramento. Com dois profiles diferentes ativos, confira se cada um atualiza seu próprio arquivo e se a coluna **Estado do client** mostra o estado esperado.
 
-Se `control/sys.txt` usa `loadPlugins 2`, o carregamento automático é seletivo: acrescente `rcm_status` à lista `loadPlugins_list`, separado por vírgula. Apenas copiar o arquivo não basta nesse modo. Para as sessões já abertas, o comando `plugin load rcm_status` carrega o plugin imediatamente. Se retornar erro, confira a mensagem no console. Após alguns segundos, `logs/rcm-status.json` deve existir e seu horário de atualização deve avançar.
+Use **uma instância por profile na mesma instalação**. Duas instâncias com o mesmo profile ainda escrevem no mesmo arquivo. Ao trocar de profile, o plugin passa a atualizar o novo arquivo e o anterior expira. O cadastro do RCM continua vinculado ao caminho que você configurou.
 
 O plugin observa `Network::IN_GAME`, `Network::stateChanged` e `disconnected`. Não envia comandos ou pacotes ao jogo. Seu JSON inclui apenas versão, PID do OpenKore, sequência, horário, estado e uma indicação de recuperação; não inclui nomes de personagens, contas ou senhas. Não lê o log de console.
 
-No monitor, pause, selecione o client e clique em **Editar selecionado**. Preencha **Status do OpenKore** com o caminho daquele `logs/rcm-status.json`. Este arquivo tem prioridade sobre a captura visual: sprites animados não cancelam uma desconexão informada pelo OpenKore. O campo **Tempo sem movimento** também define, nesta versão, o tempo de tolerância para a desconexão (padrão 120 s).
+No monitor, pause, selecione o client e clique em **Editar selecionado**. Preencha **Status do OpenKore** com o caminho completo do arquivo indicado no console do profile correspondente. Este arquivo tem prioridade sobre a captura visual: sprites animados não cancelam uma desconexão informada pelo OpenKore. O campo **Tempo sem movimento** também define, nesta versão, o tempo de tolerância para a desconexão (padrão 120 s).
 
 - **Online**: OpenKore informa estado de servidor de mapa. Não é uma consulta independente ao servidor oficial.
 - **Offline**: OpenKore deixou de informar esse estado. A recuperação requer conexão anterior observada pelo plugin ou evento `disconnected`, mais uma falha persistente durante a tolerância.
