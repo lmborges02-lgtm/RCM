@@ -221,60 +221,68 @@ class App:
         saved_config = load_config()
         self.items = saved_config['clients']
         self.settings = {'restart_interval': saved_config.get('restart_interval', 60)}
-        root.title('Ragnarok • Guardião dos clients')
+        root.title('RO Monitor • Ragnarok Online')
         root.geometry(f"{min(1160, root.winfo_screenwidth() - 80)}x{min(900, root.winfo_screenheight() - 100)}")
         root.minsize(min(1000, root.winfo_screenwidth() - 60), min(690, root.winfo_screenheight() - 60))
-        self.colors = {'paper': '#F3EDDF', 'surface': '#FFFCF4', 'ink': '#263E41',
-                       'muted': '#58645C', 'gold': '#CDA86B', 'line': '#C5B99E', 'teal': '#234C50'}
+        self.colors = {'paper': '#F1F5F6', 'surface': '#FFFFFF', 'ink': '#152D33',
+                       'muted': '#4E676D', 'gold': '#CDA86B', 'line': '#CBD9DD', 'teal': '#11675F'}
         self.apply_theme()
         root.configure(background=self.colors['paper'])
-        header = tk.Frame(root, bg='#19383D', padx=24, pady=18); header.pack(fill='x')
-        crest = tk.Canvas(header, width=86, height=86, bg='#19383D', highlightthickness=0)
-        crest.pack(side='left', padx=(0, 18)); self.draw_crest(crest)
-        title = tk.Frame(header, bg='#19383D'); title.pack(side='left')
-        tk.Label(title, text='R A G N A R O K', font=('Georgia', 12, 'bold'), bg='#19383D', fg='#E6C78C').pack(anchor='w')
-        tk.Label(title, text='Guardião dos clients', font=('Georgia', 26, 'bold'), bg='#19383D', fg='#FFF8E8').pack(anchor='w', pady=3)
-        tk.Label(title, text='Seus aventureiros, sob vigilância.', font=('Segoe UI', 11), bg='#19383D', fg='#C5D8D4').pack(anchor='w')
+        header = tk.Frame(root, bg='#142E34', padx=24, pady=14); header.pack(fill='x')
+        crest = tk.Canvas(header, width=48, height=48, bg='#142E34', highlightthickness=0)
+        crest.pack(side='left', padx=(0, 12)); self.draw_crest(crest)
+        crest.scale('all', 0, 0, .55, .55)
+        title = tk.Frame(header, bg='#142E34'); title.pack(side='left')
+        tk.Label(title, text='RO Monitor', font=('Segoe UI', 23, 'bold'), bg='#142E34', fg='#FFFFFF').pack(anchor='w')
+        tk.Label(title, text='Ragnarok Online  /  Central de monitoramento', font=('Segoe UI', 10), bg='#142E34', fg='#BDD5D7').pack(anchor='w')
         self.phase = tk.Label(header, text='MONITOR PAUSADO', font=('Segoe UI', 10, 'bold'),
-                              bg='#2C4A4D', fg='#E9D5AB', padx=16, pady=10)
+                              bg='#29454C', fg='#E4EFF1', padx=13, pady=8)
         self.phase.pack(side='right')
-        tk.Frame(root, bg='#CDA86B', height=3).pack(fill='x')
+        tk.Frame(root, bg='#288E80', height=3).pack(fill='x')
         frame = ttk.Frame(root, padding=(24, 16)); frame.pack(fill='both', expand=True)
         frame.columnconfigure(0, weight=1); frame.rowconfigure(1, weight=1)
         overview = ttk.Frame(frame); overview.grid(row=0, column=0, sticky='ew', pady=(0, 16))
         self.counts = {}
         for key, label in [('total', 'Clients cadastrados'), ('active', 'Ativos na lista'), ('visual', 'Com detecção visual')]:
             group = ttk.Frame(overview); group.pack(side='left', padx=(0, 40))
-            value = ttk.Label(group, text='0', font=('Georgia', 22, 'bold'), foreground='#234C50')
+            value = ttk.Label(group, text='0', font=('Segoe UI', 23, 'bold'), foreground='#234C50')
             value.pack(side='left', padx=(0, 10)); ttk.Label(group, text=label, style='Muted.TLabel').pack(side='left')
             self.counts[key] = value
         self.is_admin = bool(C.WinDLL('shell32').IsUserAnAdmin())
         ttk.Label(overview, text='Acesso: administrador' if self.is_admin else 'Acesso: normal',
                   style='Muted.TLabel').pack(side='right')
         self.tabs = ttk.Notebook(frame); self.tabs.grid(row=1, column=0, sticky='nsew')
+        self.tabs.enable_traversal()
         clients_panel = ttk.Frame(self.tabs, style='Surface.TFrame', padding=16)
         history_panel = ttk.Frame(self.tabs, style='Surface.TFrame', padding=16)
-        self.tabs.add(clients_panel, text='  Clients  '); self.tabs.add(history_panel, text='  Diário de eventos  ')
+        self.tabs.add(clients_panel, text='Clientes', underline=0); self.tabs.add(history_panel, text='Eventos', underline=0)
         self.build_discord_tab()
         clients_panel.columnconfigure(0, weight=1); clients_panel.rowconfigure(1, weight=1)
         toolbar = ttk.Frame(clients_panel, style='Surface.TFrame'); toolbar.grid(row=0, column=0, sticky='ew', pady=(0, 14))
-        self.edit_buttons = []
-        for label, action in [('Adicionar arquivo', self.add), ('Editar selecionado', self.edit),
-                              ('Ativar / desativar', self.toggle), ('Remover', self.remove),
-                              ('Testar captura', self.preview)]:
-            button = ttk.Button(toolbar, text=label, command=action, cursor='hand2'); button.pack(side='left', padx=(0, 8))
-            self.edit_buttons.append(button)
+        ttk.Label(toolbar, text='Clientes cadastrados', style='Section.TLabel').pack(side='left')
+        add_button = ttk.Button(toolbar, text='Adicionar client', command=self.add, style='Primary.TButton')
+        add_button.pack(side='right')
+        menu_button = ttk.Menubutton(toolbar, text='Ações do cliente', takefocus=True)
+        menu = tk.Menu(menu_button, tearoff=False, font=('Segoe UI', 10))
+        for label, action in [('Editar configuração', self.edit), ('Testar captura', self.preview),
+                              ('Ativar / desativar', self.toggle)]:
+            menu.add_command(label=label, command=action)
+        menu.add_separator()
+        menu.add_command(label='Remover da lista', command=self.remove)
+        menu_button.configure(menu=menu)
+        menu_button.pack(side='right', padx=8)
+        self.edit_buttons = [add_button, menu_button]
         table_frame = ttk.Frame(clients_panel, style='Surface.TFrame'); table_frame.grid(row=1, column=0, sticky='nsew')
         self.table = ttk.Treeview(table_frame, columns=('name', 'active', 'visual', 'status'), show='headings', selectmode='browse')
-        for key, title, width, minimum in [('name', 'AVENTUREIRO / CLIENT', 285, 220), ('active', 'ATIVO', 85, 80),
-                                          ('visual', 'CONGELAMENTO', 175, 160), ('status', 'ESTADO DO CLIENT', 360, 230)]:
+        for key, title, width, minimum in [('name', 'CLIENTE', 285, 220), ('active', 'ATIVO', 85, 80),
+                                          ('visual', 'MODO DE DETECÇÃO', 175, 160), ('status', 'ESTADO', 360, 230)]:
             self.table.heading(key, text=title); self.table.column(key, width=width, minwidth=minimum, stretch=key in ('name', 'status'))
         self.table.pack(side='left', fill='both', expand=True)
         scroll = ttk.Scrollbar(table_frame, orient='vertical', command=self.table.yview)
         scroll.pack(side='right', fill='y'); self.table.configure(yscrollcommand=scroll.set)
-        for tag, bg, fg in [('even', '#FFFCF4', '#263E41'), ('odd', '#F4EEDC', '#263E41'),
-                            ('healthy', '#EBF4ED', '#244E3D'), ('warning', '#FFF0D4', '#744809'),
-                            ('inactive', '#EEEAE1', '#59635C')]:
+        for tag, bg, fg in [('even', '#FFFFFF', '#263E41'), ('odd', '#F2F7F8', '#263E41'),
+                            ('healthy', '#E8F6EE', '#244E3D'), ('warning', '#FFF3D9', '#744809'),
+                            ('inactive', '#EFF2F4', '#59635C')]:
             self.table.tag_configure(tag, background=bg, foreground=fg)
         self.table.bind('<<TreeviewSelect>>', self.show_selection)
         self.table.bind('<Double-1>', lambda _: self.edit() if not self.worker or not self.worker.is_alive() else None)
@@ -286,8 +294,8 @@ class App:
                   style='SurfaceMuted.TLabel').pack(anchor='w', pady=(4, 12))
         log_frame = ttk.Frame(history_panel, style='Surface.TFrame'); log_frame.pack(fill='both', expand=True)
         self.log = tk.Text(log_frame, height=5, font=('Consolas', 11), state='disabled', wrap='word',
-                           background='#F5EFDF', foreground='#263E41', relief='flat', padx=12, pady=12,
-                           highlightthickness=1, highlightbackground='#C5B99E', selectbackground='#234C50', selectforeground='white')
+                           background='#F3F8F9', foreground='#263E41', relief='flat', padx=12, pady=12,
+                           highlightthickness=1, highlightbackground='#CBD9DD', selectbackground='#234C50', selectforeground='white')
         self.log.pack(side='left', fill='both', expand=True)
         log_scroll = ttk.Scrollbar(log_frame, command=self.log.yview); log_scroll.pack(side='right', fill='y')
         self.log.configure(yscrollcommand=log_scroll.set)
@@ -306,19 +314,29 @@ class App:
         interval_input.pack(side='left')
         self.edit_buttons.append(interval_input)
         ttk.Label(settings_row, text='segundos  •  Um client por vez.', style='Muted.TLabel').pack(side='left', padx=8)
-        ttk.Label(frame, text='Para detectar congelamento, valide uma região com movimento contínuo em “Testar captura”.',
-                  style='Muted.TLabel', wraplength=940).grid(row=4, column=0, sticky='w')
+        capture_hint = ttk.Label(frame, text='Para detectar congelamento, valide uma região com movimento contínuo em “Testar captura”.',
+                                 style='Muted.TLabel', wraplength=940)
+        capture_hint.grid(row=4, column=0, sticky='w')
+        client_only = [overview, settings_row, capture_hint]
         if not self.is_admin:
-            ttk.Label(frame, text='Parâmetros sem acesso? Reabra usando “Iniciar como administrador.cmd”.',
-                      style='Muted.TLabel').grid(row=5, column=0, sticky='w', pady=(4, 0))
-        self.tabs.add(KafraTab(self.tabs, BASE), text='  Kafra Watch  ')
+            admin_hint = ttk.Label(frame, text='Parâmetros sem acesso? Reabra usando “Iniciar como administrador.cmd”.',
+                                   style='Muted.TLabel')
+            admin_hint.grid(row=5, column=0, sticky='w', pady=(4, 0))
+            client_only.append(admin_hint)
+        self.tabs.add(KafraTab(self.tabs, BASE), text='Kafra Watch', underline=0)
+        self.tabs.insert(1, self.tabs.tabs()[-1])
+        def update_section(_event):
+            show = self.tabs.select() == str(clients_panel)
+            for widget in client_only:
+                widget.grid() if show else widget.grid_remove()
+        self.tabs.bind('<<NotebookTabChanged>>', update_section)
         self.refresh(); root.after(150, self.drain)
         root.protocol('WM_DELETE_WINDOW', self.close)
 
     def build_discord_tab(self):
         panel = ttk.Frame(self.tabs, padding=20)
-        self.tabs.add(panel, text='  Discord  ')
-        ttk.Label(panel, text='Avisos no Discord', font=('Georgia', 19, 'bold')).pack(anchor='w')
+        self.tabs.add(panel, text='Discord', underline=0)
+        ttk.Label(panel, text='Avisos no Discord', font=('Segoe UI', 18, 'bold')).pack(anchor='w')
         ttk.Label(panel, text='Falhas, fechamento, reabertura e limite de tentativas. Apenas mudanças de estado.',
                   wraplength=880).pack(anchor='w', pady=(8, 18))
         saved = {'enabled': False, 'webhook_url': ''}
@@ -352,7 +370,7 @@ class App:
             except Exception as exc: messagebox.showerror('Discord', str(exc))
         ttk.Button(actions, text='Salvar configuração', command=apply, style='Primary.TButton').pack(side='left')
         ttk.Button(actions, text='Enviar teste ao canal', command=lambda: apply(True)).pack(side='left', padx=12)
-        ttk.Label(panel, text='Conexão do personagem no Freya', font=('Georgia', 16, 'bold')).pack(anchor='w', pady=(18, 8))
+        ttk.Label(panel, text='Conexão do personagem no Freya', font=('Segoe UI', 15, 'bold')).pack(anchor='w', pady=(18, 8))
         ttk.Label(panel, text='Associe o arquivo de status do profile em “Editar selecionado” para receber o estado do OpenKore.\n'
                   'Sem essa associação, processo aberto não confirma personagem conectado. Status antigo aparece como desconhecido.',
                   wraplength=880).pack(anchor='w')
@@ -364,30 +382,44 @@ class App:
         style.configure('TFrame', background=c['paper'])
         style.configure('Surface.TFrame', background=c['surface'])
         style.configure('TLabel', background=c['paper'], foreground=c['ink'])
+        style.configure('Surface.TLabel', background=c['surface'], foreground=c['ink'])
         style.configure('Muted.TLabel', foreground=c['muted'])
         style.configure('SurfaceMuted.TLabel', background=c['surface'], foreground=c['muted'])
-        style.configure('Section.TLabel', font=('Georgia', 18, 'bold'), background=c['surface'])
-        style.configure('TButton', background='#EEE3CA', foreground=c['ink'], bordercolor='#A89773',
-                         lightcolor='#FFF8E6', darkcolor='#A89773', padding=(12, 9), focuscolor=c['teal'])
-        style.map('TButton', background=[('disabled', '#E9E3D7'), ('pressed', '#DDCCAA'), ('active', '#F8EBCF')],
-                  foreground=[('disabled', '#787A70')])
-        style.configure('Primary.TButton', background=c['teal'], foreground='#FFF8E8', bordercolor=c['teal'],
-                         lightcolor=c['teal'], darkcolor=c['teal'], font=('Segoe UI', 10, 'bold'), focuscolor='#E6C78C')
-        style.map('Primary.TButton', background=[('disabled', '#E9E3D7'), ('pressed', '#163B40'), ('active', '#326269')],
-                  foreground=[('disabled', '#787A70'), ('!disabled', '#FFF8E8')])
+        style.configure('Section.TLabel', font=('Segoe UI', 15, 'bold'), background=c['surface'])
+        style.configure('TButton', background='#F5F9FA', foreground=c['ink'], bordercolor='#A9BEC2',
+                         lightcolor='#F5F9FA', darkcolor='#F5F9FA', padding=(12, 8), focuscolor=c['teal'])
+        style.map('TButton', background=[('disabled', '#ECF1F2'), ('pressed', '#D8EBEB'), ('active', '#E6F2F2')],
+                  foreground=[('disabled', '#687B80')])
+        style.configure('TMenubutton', background='#F5F9FA', foreground=c['ink'], bordercolor='#A9BEC2',
+                        lightcolor='#F5F9FA', darkcolor='#F5F9FA', padding=(12, 8))
+        style.map('TMenubutton', background=[('disabled', '#ECF1F2'), ('active', '#E6F2F2')],
+                  foreground=[('disabled', '#687B80')], bordercolor=[('focus', c['teal'])])
+        style.configure('Primary.TButton', background=c['teal'], foreground='white', bordercolor=c['teal'],
+                         lightcolor=c['teal'], darkcolor=c['teal'], font=('Segoe UI', 10, 'bold'), focuscolor='#C7FFF4')
+        style.map('Primary.TButton', background=[('disabled', '#ECF1F2'), ('pressed', '#094C46'), ('active', '#0B5A52')],
+                  foreground=[('disabled', '#687B80'), ('!disabled', 'white')])
         style.configure('Treeview', background=c['surface'], fieldbackground=c['surface'], foreground=c['ink'],
-                         rowheight=46, bordercolor=c['line'], lightcolor=c['line'], darkcolor=c['line'], font=('Segoe UI', 11))
-        style.configure('Treeview.Heading', font=('Segoe UI', 9, 'bold'), background='#E8DCC2', foreground='#384C43',
-                         padding=(10, 10), bordercolor=c['line'], relief='flat')
-        style.map('Treeview', background=[('selected', c['teal'])], foreground=[('selected', '#FFF8E8')])
-        style.map('Treeview.Heading', background=[('active', '#E8DCC2')])
+                         rowheight=34, bordercolor=c['line'], lightcolor=c['line'], darkcolor=c['line'], font=('Segoe UI', 10))
+        style.configure('Treeview.Heading', font=('Segoe UI', 9, 'bold'), background='#E7F0F2', foreground=c['ink'],
+                         padding=(9, 8), bordercolor=c['line'], relief='flat')
+        style.map('Treeview', background=[('selected', c['teal'])], foreground=[('selected', 'white')])
+        style.map('Treeview.Heading', background=[('active', '#E7F0F2')])
         style.configure('TNotebook', background=c['paper'], bordercolor=c['line'], tabmargins=(0, 0, 0, 0))
-        style.configure('TNotebook.Tab', padding=(14, 9), background='#E5D9BF', foreground='#46564D', font=('Segoe UI', 10, 'bold'))
-        style.map('TNotebook.Tab', background=[('selected', c['surface'])], foreground=[('selected', c['ink'])])
-        style.configure('TEntry', fieldbackground=c['surface'], bordercolor=c['line'], padding=7)
-        style.map('TEntry', bordercolor=[('focus', c['teal'])])
+        style.configure('TNotebook.Tab', padding=(17, 10), background='#E5EEF0', foreground=c['muted'],
+                        bordercolor=c['line'], focuscolor=c['teal'], font=('Segoe UI', 10, 'bold'))
+        style.map('TNotebook.Tab', background=[('selected', c['teal']), ('active', '#D8EBEB')],
+                  foreground=[('selected', 'white')], focuscolor=[('selected', 'white')],
+                  padding=[('selected', (17, 10)), ('!selected', (17, 10))])
+        for widget in ('TEntry', 'TCombobox', 'TSpinbox'):
+            style.configure(widget, fieldbackground=c['surface'], foreground=c['ink'], bordercolor='#A9BEC2',
+                            padding=7, arrowcolor=c['teal'])
+            style.map(widget, fieldbackground=[('disabled', '#ECF1F2'), ('readonly', c['surface'])],
+                      bordercolor=[('focus', c['teal'])])
+        self.root.option_add('*TCombobox*Listbox.font', '{Segoe UI} 11')
+        self.root.option_add('*TCombobox*Listbox.selectBackground', c['teal'])
+        self.root.option_add('*TCombobox*Listbox.selectForeground', 'white')
         style.configure('TCheckbutton', padding=6)
-        style.configure('Vertical.TScrollbar', background='#D5C5A5', troughcolor='#F3EDDF', bordercolor=c['line'], arrowsize=14)
+        style.configure('Vertical.TScrollbar', background='#CFDEE1', troughcolor=c['paper'], bordercolor=c['line'], arrowsize=14)
 
     @staticmethod
     def draw_crest(canvas):
@@ -466,7 +498,7 @@ class App:
         dialog.transient(self.root); dialog.grab_set()
         dialog.bind('<Escape>', lambda _: dialog.destroy())
         panel = ttk.Frame(dialog, padding=20); panel.pack(fill='both', expand=True)
-        ttk.Label(panel, text='Configurar aventureiro', font=('Georgia', 19, 'bold')).grid(row=0, column=0, sticky='w', pady=(0, 12))
+        ttk.Label(panel, text='Configurar aventureiro', font=('Segoe UI', 18, 'bold')).grid(row=0, column=0, sticky='w', pady=(0, 12))
         variables = {}
         for row, (key, label, value) in enumerate([
                 ('name', 'Nome', item['name']), ('path', 'Caminho do atalho ou .exe', item['path']),
@@ -541,7 +573,7 @@ class App:
                 self.start_button.config(state='normal'); self.pause_button.config(state='disabled')
                 for button in self.edit_buttons: button.config(state='normal')
                 self.summary.config(text='Pausado. Nenhum client será encerrado.')
-                self.phase.configure(text='MONITOR PAUSADO', bg='#2C4A4D', fg='#E9D5AB')
+                self.phase.configure(text='MONITOR PAUSADO', bg='#29454C', fg='#E4EFF1')
         self.root.after(150, self.drain)
 
     def start(self):
@@ -564,7 +596,7 @@ class App:
 
     def pause(self):
         self.stop.set(); self.summary.config(text='Pausando…'); self.pause_button.config(state='disabled')
-        self.phase.configure(text='PAUSANDO…', bg='#2C4A4D', fg='#E9D5AB')
+        self.phase.configure(text='PAUSANDO…', bg='#29454C', fg='#E4EFF1')
 
     def close(self):
         self.stop.set(); self.discord.close(); self.root.destroy()

@@ -7,6 +7,7 @@ from pathlib import Path
 from tkinter import Canvas, PhotoImage, TclError, filedialog, ttk
 
 from kafra_map import load_map, marker
+from kafra_sprite import load_sprite, sprite_query
 
 
 def read_json(path, limit=250_000):
@@ -69,6 +70,7 @@ class KafraTab(ttk.Frame):
         self.quotes = {}
         self.reference = read_json(base / 'data' / 'npc-renewal.json')
         self.samples = {}
+        self.profile_labels = {}
         self.output_error = ''
         self.map_cache = base / 'map-cache'
         self.map_results = SimpleQueue()
@@ -76,39 +78,56 @@ class KafraTab(ttk.Frame):
         self.map_picture = None
         self.map_image_key = None
         self.map_retry = {}
+        self.sprite_results = SimpleQueue()
+        self.sprite_pending = None
+        self.sprite_key = None
+        self.sprite_picture = None
+        self.sprite_retry = {}
         self.columnconfigure(0, weight=1)
         self.rowconfigure(4, weight=1)
         header = ttk.Frame(self, style='Surface.TFrame')
-        header.grid(row=0, column=0, columnspan=2, sticky='ew')
-        ttk.Label(header, text='Kafra Watch', font=('Georgia', 20, 'bold')).pack(side='left')
-        ttk.Button(header, text='Escolher pasta do GordoKore', command=self.choose).pack(side='right')
-        self.feed = ttk.Label(self, wraplength=850)
-        self.feed.grid(row=1, column=0, columnspan=2, sticky='w', pady=5)
+        header.grid(row=0, column=0, columnspan=3, sticky='ew')
+        ttk.Label(header, text='Kafra Watch', style='Section.TLabel').pack(side='left')
+        ttk.Button(header, text='Pasta do GordoKore…', command=self.choose).pack(side='right')
+        self.feed = ttk.Label(self, wraplength=850, style='SurfaceMuted.TLabel')
+        self.feed.grid(row=1, column=0, columnspan=3, sticky='w', pady=5)
         controls = ttk.Frame(self, style='Surface.TFrame')
-        controls.grid(row=2, column=0, columnspan=2, sticky='ew')
-        ttk.Label(controls, text='Profile:').pack(side='left')
-        self.profile = ttk.Combobox(controls, state='readonly', width=34)
-        self.profile.pack(side='left', padx=8)
+        controls.grid(row=2, column=0, columnspan=3, sticky='ew')
+        ttk.Label(controls, text='Personagem', style='SurfaceMuted.TLabel').grid(row=0, column=0, sticky='w')
+        self.profile = ttk.Combobox(controls, state='readonly', width=34, height=10)
+        self.profile.grid(row=1, column=0, sticky='ew', padx=(0, 15))
         self.profile.bind('<<ComboboxSelected>>', lambda _: self.render())
-        self.detail = ttk.Label(controls, wraplength=660, justify='left')
-        self.detail.pack(side='left', padx=8)
+        ttk.Label(controls, text='Mostrar na lista', style='SurfaceMuted.TLabel').grid(row=0, column=1, sticky='w')
+        self.loot_filter = ttk.Combobox(controls, state='readonly', width=18,
+                                        values=('Todas as coletas', 'Só itens', 'Só cartas', 'Sem cotação'))
+        self.loot_filter.current(0)
+        self.loot_filter.grid(row=1, column=1, sticky='ew', padx=(0, 15))
+        self.loot_filter.bind('<<ComboboxSelected>>', lambda _: self.render())
+        self.detail = ttk.Label(controls, wraplength=380, justify='left', style='SurfaceMuted.TLabel')
+        self.detail.grid(row=0, column=2, rowspan=2, sticky='w')
+        controls.columnconfigure(2, weight=1)
         self.map = Canvas(self, width=272, height=272, background='#173639', highlightthickness=0)
-        self.map.grid(row=3, column=1, rowspan=2, sticky='n', padx=(14, 0), pady=(10, 0))
-        self.metrics = ttk.Label(self, font=('Segoe UI', 11, 'bold'), wraplength=860)
+        self.map.grid(row=3, column=2, rowspan=2, sticky='n', padx=(8, 0))
+        self.portrait = Canvas(self, width=156, height=222, background='#E7F0F2', highlightthickness=0)
+        self.portrait.grid(row=3, column=1, rowspan=2, sticky='n', padx=(12, 0))
+        self.metrics = ttk.Label(self, font=('Segoe UI', 11, 'bold'), wraplength=475, style='Surface.TLabel')
         self.metrics.grid(row=3, column=0, sticky='w', pady=10)
         pane = ttk.Frame(self)
         pane.grid(row=4, column=0, sticky='nsew')
         columns = ('name', 'kind', 'qty', 'unit', 'total', 'source')
         self.table = ttk.Treeview(pane, columns=columns, show='headings', height=7)
-        for col, title, width in zip(columns, ('Item', 'Tipo', 'Qtd.', 'NPC / un.', 'Total NPC', 'Preço-base'), (230, 75, 65, 100, 105, 130)):
+        for col, title, width in zip(columns, ('Item', 'Tipo', 'Qtd.', 'NPC / un.', 'Total NPC', 'Preço-base'), (170, 66, 48, 85, 91, 120)):
             self.table.heading(col, text=title)
             self.table.column(col, width=width, minwidth=45, stretch=col == 'name')
         scroll = ttk.Scrollbar(pane, orient='vertical', command=self.table.yview)
         self.table.configure(yscrollcommand=scroll.set)
         scroll.pack(side='right', fill='y')
+        hscroll = ttk.Scrollbar(pane, orient='horizontal', command=self.table.xview)
+        self.table.configure(xscrollcommand=hscroll.set)
+        hscroll.pack(side='bottom', fill='x')
         self.table.pack(fill='both', expand=True)
         ttk.Label(self, text='Superfaturar 10 (+24%) · Valor hipotético de venda das entradas no inventário. Não representa saldo nem lucro líquido.',
-                  wraplength=850).grid(row=5, column=0, columnspan=2, sticky='w', pady=(7, 0))
+                  wraplength=850).grid(row=5, column=0, columnspan=3, sticky='w', pady=(7, 0))
         saved = read_json(self.preferences).get('logs')
         if isinstance(saved, str) and saved:
             self.set_logs(Path(saved))
@@ -170,17 +189,29 @@ class KafraTab(ttk.Frame):
                 self.output_error = ''
             except OSError:
                 self.output_error = ' · Não foi possível salvar as cotações.'
-        self.profile['values'] = sorted(self.samples)
-        if self.profile.get() not in self.samples:
-            self.profile.set(next(iter(sorted(self.samples)), ''))
+        selected = self.profile_labels.get(self.profile.get())
+        self.profile_labels = {}
+        for key, sample in sorted(self.samples.items()):
+            name = sample.get('name')
+            label = f'{name} · {key}' if name and name != key else key
+            self.profile_labels[label] = key
+        options = tuple(self.profile_labels)
+        if tuple(self.profile['values']) != options:
+            self.profile['values'] = options
+        self.profile.configure(state='readonly' if options else 'disabled')
+        label = next((label for label, key in self.profile_labels.items() if key == selected),
+                     options[0] if options else '')
+        if self.profile.get() != label:
+            self.profile.set(label)
         self.feed.configure(text=(f'{len(grouped)} profile(s) com sinal · {self.logs}' if self.logs else
                                   'Escolha a pasta do GordoKore e carregue o plugin kafra_watch em um profile.') + self.output_error)
         self.render()
 
     def render(self):
-        row = self.samples.get(self.profile.get(), {})
+        row = self.samples.get(self.profile_labels.get(self.profile.get()), {})
         state = row.get('state')
         self.map.delete('all')
+        self.draw_sprite(row.get('appearance') if state == 'online' else None, state)
         self.table.delete(*self.table.get_children())
         if state != 'online':
             self.map.create_text(136, 136, text='Sem posição ao vivo', fill='white')
@@ -202,8 +233,44 @@ class KafraTab(ttk.Frame):
         self.metrics.configure(text=f'Sessão: {seconds//3600}h {seconds%3600//60:02d}min  •  Loot NPC/h: {rate} z  •  '
                                f'Loot: {fmt(total) if priced else "—"} z  •  {priced}/{units} cotados ({cards} cartas)  •  '
                                f"Ganhos no saldo: {fmt(row.get('gains'))} z")
+        mode = self.loot_filter.current()
         for name, kind, qty, unit, source in rows:
+            if (mode == 1 and kind == 'Carta') or (mode == 2 and kind != 'Carta') or (mode == 3 and unit is not None):
+                continue
             self.table.insert('', 'end', values=(name, kind, fmt(qty), fmt(unit), fmt(qty*unit) if unit is not None else '—', source))
+        if not self.table.get_children():
+            self.table.insert('', 'end', values=('Nenhuma coleta neste filtro',))
+
+    def draw_sprite(self, appearance, state):
+        panel = self.portrait
+        panel.delete('all')
+        panel.create_text(78, 20, text='VISUAL DO PERSONAGEM', fill='#274149', font=('Segoe UI', 8, 'bold'))
+        query = sprite_query(appearance)
+        try:
+            finished, data = self.sprite_results.get_nowait()
+            self.sprite_pending = None
+            if data and finished == query:
+                try:
+                    self.sprite_picture = PhotoImage(master=self, data=data, format='png')
+                    self.sprite_key = query
+                except TclError:
+                    self.sprite_retry[finished] = time.monotonic() + 120
+            elif not data:
+                self.sprite_retry[finished] = time.monotonic() + 120
+        except Empty:
+            pass
+        if query is None:
+            msg = 'Aguardando aparência.\nRecarregue o plugin.' if state == 'online' else 'Sem visual ao vivo'
+        elif self.sprite_key == query:
+            panel.create_image(0, 28, anchor='nw', image=self.sprite_picture)
+            return
+        else:
+            if self.sprite_pending is None and self.sprite_retry.get(query, 0) <= time.monotonic():
+                self.sprite_pending = query
+                cache = self.base / 'sprite-cache'
+                Thread(target=lambda: self.sprite_results.put((query, load_sprite(cache, query))), daemon=True).start()
+            msg = 'Montando sprite…' if self.sprite_pending == query else 'Sprite indisponível'
+        panel.create_text(78, 112, text=msg, width=138, justify='center', fill='#274149')
 
     def draw_map(self, name, x, y, w, h):
         if not (isinstance(name, str) and all(integer(v) for v in (w, h)) and 0 < w <= 2048 and 0 < h <= 2048):

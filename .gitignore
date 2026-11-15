@@ -2,6 +2,7 @@
 config.json
 kafra-local.json
 map-cache/
+sprite-cache/
 kafra-local.tmp
 kafra-watch-*.json
 kafra-watch-*.json.tmp

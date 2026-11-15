@@ -12,3 +12,5 @@ O catálogo embutido usa a base [rAthena Renewal](https://github.com/rathena/rat
 A aba é local: não expõe o monitor na rede. O RCM continua usando `rcm_status.pl` para sua própria detecção do OpenKore.
 
 O minimapa usa a imagem original disponibilizada pelo [Divine Pride](https://www.divine-pride.net/database/map/yuno_fild09). A imagem é armazenada em `map-cache` e só é exibida se suas dimensões coincidirem com as do mapa recebido pelo GordoKore. O marcador usa a última posição disponível na telemetria local. Para mapas sem imagem compatível, as coordenadas continuam visíveis.
+
+**Visual do personagem:** a aba mostra um sprite de corpo inteiro montado com classe, cabelo, cores e IDs de aparência de acessórios, capa, arma e escudo que o GordoKore recebe. Visuais que o jogo não exibe ou que o renderizador não conhece podem não aparecer. Após atualizar o plugin, recarregue-o nos profiles abertos. O [ragassets](https://github.com/adsonpleal/ragassets) recebe somente os parâmetros de aparência, sem nick ou conta; os PNGs ficam em cache local em `sprite-cache`.
