@@ -14,6 +14,7 @@ import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 from discord_notifications import DiscordNotifier, notification_state
 from openkore_status import read_status
+from kafra_watch import KafraTab
 
 BASE = Path(__file__).resolve().parent
 CONFIG = BASE / 'config.json'
@@ -310,6 +311,7 @@ class App:
         if not self.is_admin:
             ttk.Label(frame, text='Parâmetros sem acesso? Reabra usando “Iniciar como administrador.cmd”.',
                       style='Muted.TLabel').grid(row=5, column=0, sticky='w', pady=(4, 0))
+        self.tabs.add(KafraTab(self.tabs, BASE), text='  Kafra Watch  ')
         self.refresh(); root.after(150, self.drain)
         root.protocol('WM_DELETE_WINDOW', self.close)
 

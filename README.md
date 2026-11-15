@@ -1,5 +1,7 @@
 # Ragnarok Client Monitor
 
+A aba **Kafra Watch** lê a telemetria local do GordoKore e estima o rendimento das coletas em vendas a NPC. Veja o [guia da aba](docs/KAFRA-WATCH.md).
+
 **Guardião dos clients** é um aplicativo local para Windows que monitora múltiplos clients e reabre seus atalhos quando fecham, congelam ou apresentam a janela **Gravity Error Handler**.
 
 Na versão **0.3.0**, também acompanha a conexão informada pelo OpenKore e envia mudanças de estado pelo Discord. O pequeno arquivo de status substitui a comparação visual quando associado ao client, evitando que sprites ainda animados escondam uma desconexão.

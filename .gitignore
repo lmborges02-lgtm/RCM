@@ -1,5 +1,10 @@
 # Dados locais: jamais publicar configurações reais, logs ou dumps.
 config.json
+kafra-local.json
+map-cache/
+kafra-local.tmp
+kafra-watch-*.json
+kafra-watch-*.json.tmp
 config.tmp
 discord.json
 discord.tmp
