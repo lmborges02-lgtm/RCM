@@ -1,5 +1,7 @@
 """Local, read-only GordoKore telemetry and NPC valuation."""
 import json
+import os
+import sqlite3
 import time
 from queue import Empty, SimpleQueue
 from threading import Thread
@@ -8,6 +10,7 @@ from tkinter import Canvas, PhotoImage, TclError, filedialog, ttk
 
 from kafra_map import load_map, marker
 from kafra_sprite import load_sprite, sprite_query
+from kafra_sessions import SessionHistory
 
 
 def read_json(path, limit=250_000):
@@ -70,6 +73,13 @@ class KafraTab(ttk.Frame):
         self.quotes = {}
         self.reference = read_json(base / 'data' / 'npc-renewal.json')
         self.samples = {}
+        self.segments = {}
+        self.session_error = ''
+        try:
+            self.history = SessionHistory(base / 'kafra-sessions.sqlite3')
+        except (OSError, sqlite3.Error):
+            self.history = None
+            self.session_error = ' · Histórico indisponível: não foi possível abrir o banco local.'
         self.profile_labels = {}
         self.output_error = ''
         self.map_cache = base / 'map-cache'
@@ -89,6 +99,8 @@ class KafraTab(ttk.Frame):
         header.grid(row=0, column=0, columnspan=3, sticky='ew')
         ttk.Label(header, text='Kafra Watch', style='Section.TLabel').pack(side='left')
         ttk.Button(header, text='Pasta do GordoKore…', command=self.choose).pack(side='right')
+        self.reset_button = ttk.Button(header, text='Resetar sessão', command=self.reset_session, state='disabled')
+        self.reset_button.pack(side='right', padx=8)
         self.feed = ttk.Label(self, wraplength=850, style='SurfaceMuted.TLabel')
         self.feed.grid(row=1, column=0, columnspan=3, sticky='w', pady=5)
         controls = ttk.Frame(self, style='Surface.TFrame')
@@ -114,15 +126,39 @@ class KafraTab(ttk.Frame):
         self.metrics.grid(row=3, column=0, sticky='w', pady=10)
         pane = ttk.Frame(self)
         pane.grid(row=4, column=0, sticky='nsew')
+        self.session_tabs = ttk.Notebook(pane)
+        self.session_tabs.pack(fill='both', expand=True)
+        self.session_tabs.enable_traversal()
+        loot_panel = ttk.Frame(self.session_tabs)
+        history_panel = ttk.Frame(self.session_tabs)
+        self.session_tabs.add(loot_panel, text='Coletas atuais')
+        self.session_tabs.add(history_panel, text='Histórico de sessões')
+        self.history_summary = ttk.Label(history_panel, wraplength=470, style='SurfaceMuted.TLabel')
+        self.history_summary.pack(anchor='w', padx=8, pady=8)
+        history_list = ttk.Frame(history_panel)
+        history_list.pack(fill='both', expand=True)
+        self.history_table = ttk.Treeview(history_list, columns=('date', 'duration', 'loot', 'rate', 'coverage', 'state'),
+                                         show='headings', height=6)
+        for key, title, width in zip(('date', 'duration', 'loot', 'rate', 'coverage', 'state'),
+                                     ('Início', 'Duração', 'Loot NPC', 'Zeny/h', 'Cotados', 'Encerramento'),
+                                     (135, 85, 100, 100, 75, 165)):
+            self.history_table.heading(key, text=title)
+            self.history_table.column(key, width=width, minwidth=60)
+        hs = ttk.Scrollbar(history_list, orient='vertical', command=self.history_table.yview)
+        hs.pack(side='right', fill='y')
+        hx = ttk.Scrollbar(history_list, orient='horizontal', command=self.history_table.xview)
+        hx.pack(side='bottom', fill='x')
+        self.history_table.configure(yscrollcommand=hs.set, xscrollcommand=hx.set)
+        self.history_table.pack(fill='both', expand=True)
         columns = ('name', 'kind', 'qty', 'unit', 'total', 'source')
-        self.table = ttk.Treeview(pane, columns=columns, show='headings', height=7)
+        self.table = ttk.Treeview(loot_panel, columns=columns, show='headings', height=7)
         for col, title, width in zip(columns, ('Item', 'Tipo', 'Qtd.', 'NPC / un.', 'Total NPC', 'Preço-base'), (170, 66, 48, 85, 91, 120)):
             self.table.heading(col, text=title)
             self.table.column(col, width=width, minwidth=45, stretch=col == 'name')
-        scroll = ttk.Scrollbar(pane, orient='vertical', command=self.table.yview)
+        scroll = ttk.Scrollbar(loot_panel, orient='vertical', command=self.table.yview)
         self.table.configure(yscrollcommand=scroll.set)
         scroll.pack(side='right', fill='y')
-        hscroll = ttk.Scrollbar(pane, orient='horizontal', command=self.table.xview)
+        hscroll = ttk.Scrollbar(loot_panel, orient='horizontal', command=self.table.xview)
         self.table.configure(xscrollcommand=hscroll.set)
         hscroll.pack(side='bottom', fill='x')
         self.table.pack(fill='both', expand=True)
@@ -137,6 +173,7 @@ class KafraTab(ttk.Frame):
         self.logs = path
         self.quotes = {}
         self.samples.clear()
+        self.segments.clear()
         saved = read_json(self.preferences)
         if saved.get('logs') == str(path):
             merge_quotes(self.quotes, [{'quotes': saved.get('quotes'), 'updated_at': int(time.time())}])
@@ -176,19 +213,27 @@ class KafraTab(ttk.Frame):
                     grouped.setdefault(key, []).append(data)
             for key, rows in grouped.items():
                 if len({r.get('pid') for r in rows if integer(r.get('pid'))}) > 1:
-                    self.samples[key] = {'state': 'Profile duplicado'}
+                    self.samples[key] = {'state': 'Profile duplicado', 'name': self.samples.get(key, {}).get('name')}
                     continue
                 row = max(rows, key=lambda r: r['updated_at'])
+                if not row.get('name') and self.samples.get(key, {}).get('name'):
+                    row = dict(row, name=self.samples[key]['name'])
                 merge_quotes(self.quotes, [row])
                 self.samples[key] = row
         for key in self.samples.keys() - grouped.keys():
-            self.samples[key] = {'state': 'Sem sinal'}
+            self.samples[key] = {'state': 'Sem sinal', 'name': self.samples[key].get('name')}
         if self.quotes != original:
             try:
                 self.save()
                 self.output_error = ''
             except OSError:
                 self.output_error = ' · Não foi possível salvar as cotações.'
+        if self.history and self.logs:
+            try:
+                for key, name in self.history.known_profiles(self.source_id()):
+                    self.samples.setdefault(key, {'state': 'Sem sinal', 'name': name})
+            except (OSError, sqlite3.Error):
+                pass
         selected = self.profile_labels.get(self.profile.get())
         self.profile_labels = {}
         for key, sample in sorted(self.samples.items()):
@@ -203,13 +248,75 @@ class KafraTab(ttk.Frame):
                      options[0] if options else '')
         if self.profile.get() != label:
             self.profile.set(label)
+        self.segments.clear()
+        if self.history and self.logs:
+            try:
+                online = set()
+                for key, sample in self.samples.items():
+                    segment = self.history.observe(self.source_id(), key, sample, self.value_items)
+                    if segment is not None:
+                        online.add(key)
+                        self.segments[key] = segment
+                self.history.close_missing(self.source_id(), online)
+                self.session_error = ''
+            except (OSError, sqlite3.Error):
+                self.session_error = ' · Falha ao salvar histórico; reset indisponível.'
         self.feed.configure(text=(f'{len(grouped)} profile(s) com sinal · {self.logs}' if self.logs else
-                                  'Escolha a pasta do GordoKore e carregue o plugin kafra_watch em um profile.') + self.output_error)
+                                  'Escolha a pasta do GordoKore e carregue o plugin kafra_watch em um profile.') + self.output_error + self.session_error)
         self.render()
 
+    def source_id(self):
+        return os.path.normcase(str(self.logs.resolve())) if self.logs else ''
+
+    def value_items(self, items):
+        return valuation(items, self.reference, self.quotes)
+
+    def reset_session(self):
+        # Re-read the latest file so items already recorded before the click are not counted twice.
+        self.refresh()
+        key = self.profile_labels.get(self.profile.get())
+        sample = self.samples.get(key, {})
+        if not self.history or self.session_error or sample.get('state') != 'online':
+            return
+        try:
+            self.history.reset(self.source_id(), key, sample, self.value_items)
+            self.refresh()
+        except (OSError, sqlite3.Error):
+            self.session_error = ' · Reset não salvo. Confira o acesso ao banco de sessões.'
+            self.reset_button.configure(state='disabled')
+            self.feed.configure(text=self.session_error)
+
+    def render_history(self, key, name):
+        self.history_table.delete(*self.history_table.get_children())
+        if not self.history or not key or not self.logs:
+            self.history_summary.configure(text=self.session_error or 'Histórico salvo localmente a partir desta atualização.')
+            return
+        try:
+            rows = self.history.rows(self.source_id(), key, name)
+            totals = self.history.summary(self.source_id(), key, name)
+            if not rows:
+                self.history_summary.configure(text='Ainda não há sessões registradas para este personagem.')
+            else:
+                self.history_summary.configure(text=f"{totals['sessions']} sessões · Média histórica: {fmt(totals['rate'])} z/h\n"
+                                                f"{fmt(totals['loot'])} z / {totals['seconds']//3600}h {totals['seconds']%3600//60:02d}min"
+                                                f" · {totals['priced']}/{totals['units']} unidades cotadas · inclui sessão atual")
+            for r in rows:
+                seconds = max(0, r['last'] - r['start'])
+                self.history_table.insert('', 'end', values=(
+                    time.strftime('%d/%m %H:%M', time.localtime(r['start'])),
+                    f'{seconds//3600}h {seconds%3600//60:02d}m {seconds%60:02d}s', fmt(r['loot']),
+                    fmt(round(r['loot']*3600/seconds)) if seconds else '—',
+                    f"{r['priced']}/{r['units']}", r['closed'] or 'Em andamento'))
+        except (OSError, sqlite3.Error):
+            self.history_summary.configure(text='Não foi possível consultar o histórico.')
+
     def render(self):
-        row = self.samples.get(self.profile_labels.get(self.profile.get()), {})
+        key = self.profile_labels.get(self.profile.get())
+        raw = self.samples.get(key, {})
+        row = self.segments.get(key, raw)
         state = row.get('state')
+        self.reset_button.configure(state='normal' if self.history and not self.session_error and key in self.segments else 'disabled')
+        self.render_history(key, raw.get('name') or key)
         self.map.delete('all')
         self.draw_sprite(row.get('appearance') if state == 'online' else None, state)
         self.table.delete(*self.table.get_children())

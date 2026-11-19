@@ -1,6 +1,7 @@
 # Dados locais: jamais publicar configurações reais, logs ou dumps.
 config.json
 kafra-local.json
+kafra-sessions.sqlite3*
 map-cache/
 sprite-cache/
 kafra-local.tmp
